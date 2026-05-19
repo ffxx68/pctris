@@ -95,13 +95,15 @@ At 750 KHz a simple double-loop provides ~150 ms per frame:
 
 ## Development Plan
 
-### Phase 1 — LCD validation ✅ (current)
+### Phase 1 — LCD validation
 - [x] Entry/exit register save/restore
 - [x] LCD on + clear screen
 - [x] O-piece (2×2 block) scrolling left→right across the field
 - [x] BRK key exits cleanly
 - [x] Frame delay tuned for 750 KHz
 - [x] Compiled and loaded in MAME (498 bytes)
+- [ ] Test on MAME
+- [ ] Test on real hardware (PC-1403)
 
 ### Phase 2 — Input & vertical movement
 - [ ] Read ▼ (keycode 3) / ▲ (keycode 10) → move `piece_y` ±1
@@ -135,33 +137,46 @@ At 750 KHz a simple double-loop provides ~150 ms per frame:
 ## Debugging with MAME
 
 MAME is used as the emulator with the MCP bridge for automated debugging.
+
 See [`mame_mcp_readme.md`](mame_mcp_readme.md) for full setup instructions.
 
-Quick workflow:
-```powershell
-# 1. compile
-.\pasm.exe asm\pctris.asm asm\pctris.bin
+Pre-requisite: having MAME of course, as well as the PC-1403 ROM and layout installed in MAME.
 
-# 2. start MAME manually
-cd C:\Users\F.Fumi\mame
-mame.exe pc1403 -debug -nomaximize -console
+# Quick deployment and testing workflow:
 
-# 3. in MAME Lua console
-dofile("mame_mcp_bridge.lua")
+## 1. compile and copy to your MAME home
+`.\pasm.exe asm\pctris.asm asm\pctris.bin`
 
-# 4. from Copilot / MCP: load binary and set breakpoints
-```
+`copy asm\pctris.bin C:\Users\mame\pctris.bin`
 
-Key addresses for breakpoints: `0xE030` (entry), `0xE1A0` (init_game), `0xE199` (main_loop).
+## 2. start MAME manually
+`cd C:\Users\mame`
+
+`mame.exe pc1403 -debug -nomaximize -console`
+
+Then, soft-reset (with `<F3>` on the MAME debugger), until the emulated PC-1403 starts 
+(at 'MEMORY ALL CLEAR O.K.?' message; press enter on the emulated machine.)
+
+## 3. in MAME Lua console, activate MCP bridge
+`dofile("mame_mcp_bridge.lua")`
+
+## 4. in MAME Lua console, enable key mapping (optional, for testing input)
+`dofile("pc1403_key.lua")`
+
+## 5. in MAME Lua console, init PC-1403 memory to accomodate the binary
+`keyfile("pc1403_init.key")`
+
+*Note* - [mame_mcp_bridge.lua](mame_mcp_bridge.lua), [mame_mcp_server.py](mame_mcp_server.py), [pc1403_key.lua](pc1403_key.lua), and [pc1403_init.key](pc1403_init.key) are 
+all inherited from the https://github.com/ffxx68/Sharp_LittleC_Compiler project.
+
+## 6. from Copilot / MCP: load binary and set breakpoints
+
+Ask for example in Copilot "Load the binary into MAME and set a breakpoint at the main game loop"
 
 ---
 
-## Known Issues / Notes
+# Known Issues / Notes
 
-- `LIDP` / `STD` write to ROM area if `.ORG` points to flash — on real hardware ensure
-  the program is loaded into **RAM** (`0xE000`+), not ROM.
-- `bRnd` and all `.DB` variables are part of the binary image; they are writable only
-  because the PC-1403 user RAM is writeable at runtime.
 - The `erase_piece` → `pset_piece` fall-through relies on no instruction between the
   two labels; do not insert code between them.
 - `CPIA` on SC61860 sets Carry if A < immediate (borrow), so `JRNCP` branches when
