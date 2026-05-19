@@ -45,12 +45,13 @@ main_loop:
     CALL move_piece          ; advance piece_x right (wraps at FIELD_X1)
     CALL draw_piece          ; draw 2x2 block at new position
 
-    CALL delay               ; ~150 ms frame delay
+    CALL delay               ; frame delay
 
-    CALL LIB_KEYCL1S         ; returns 1 if BRK pressed, 0 otherwise
-    CPIA 0
-    JRZP main_loop           ; A=0 → no BRK → keep looping
-    RTN                      ; BRK pressed → exit → entry code restores regs
+    ; exit check: press DEF (keycode 37) to return to BASIC
+    CALL PC1403_ROM_KEYSCAN  ; non-blocking scan → keycode in A, 0 if no key
+    CPIA 37                  ; DEF key?
+    JRNZM main_loop          ; not DEF → keep looping (backward jump)
+    RTN                      ; DEF pressed → exit → entry code restores regs
 
 ; ============================================================
 init_game:
@@ -152,8 +153,8 @@ move_piece:
     LIDP piece_x
     LDD                     ; A = piece_x
     INCA                    ; A = piece_x + 1
-    CPIA FIELD_X1+1         ; C=0 → A < 79 (ok);  C=1 → A >= 79 (wrap)
-    JRNCP move_piece_ok     ; C=0: still in field
+    CPIA FIELD_X1+1         ; C=1 → A < 79 (in field);  C=0 → A >= 79 (wrap)
+    JRCP move_piece_ok      ; C=1: still in field → keep new value
     LIA  FIELD_X0           ; wrap: reset to left edge
 move_piece_ok:
     LIDP piece_x
@@ -161,10 +162,10 @@ move_piece_ok:
     RTN
 
 ; ============================================================
-; frame delay  ~150 ms at 750 KHz
-; outer (B): 40 iterations × inner (A): 256 × 11 cycles ≈ 150 ms
+; frame delay  ~60 ms at 750 KHz
+; outer (B): 20 × inner (A): 256 × ~11 cycles ≈ 56320 cycles ≈ 75 ms
 delay:
-    LIB  40                 ; outer counter
+    LIB  5                  ; outer counter
 delay_outer:
     LIA  0                  ; inner = 256 iterations
 delay_inner:

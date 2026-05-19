@@ -57,7 +57,7 @@ To run on the PC-1403 (or MAME emulator):
 ```
 CALL &E030
 ```
-Press **BRK** to exit back to BASIC.
+Press **DEF** to exit back to BASIC (BRK triggers a hardware interrupt and crashes).
 
 ---
 
@@ -102,7 +102,7 @@ At 750 KHz a simple double-loop provides ~150 ms per frame:
 - [x] BRK key exits cleanly
 - [x] Frame delay tuned for 750 KHz
 - [x] Compiled and loaded in MAME (498 bytes)
-- [ ] Test on MAME
+- [x] Test on MAME - OK, pieces scroll across the screen with a delay, and BRK exits to BASIC.
 - [ ] Test on real hardware (PC-1403)
 
 ### Phase 2 — Input & vertical movement
@@ -171,7 +171,9 @@ all inherited from the https://github.com/ffxx68/Sharp_LittleC_Compiler project.
 
 ## 6. from Copilot / MCP: load binary and set breakpoints
 
-Ask for example in Copilot "Load the binary into MAME and set a breakpoint at the main game loop"
+Ask for example in Copilot "Load the PCTris binary into MAME and set a breakpoint at the main game loop"
+
+From here on, you can use both Copilot, or direct MAME interactions, to test and debug...
 
 ---
 
@@ -179,6 +181,5 @@ Ask for example in Copilot "Load the binary into MAME and set a breakpoint at th
 
 - The `erase_piece` → `pset_piece` fall-through relies on no instruction between the
   two labels; do not insert code between them.
-- `CPIA` on SC61860 sets Carry if A < immediate (borrow), so `JRNCP` branches when
-  A ≥ immediate — used correctly in `move_piece` boundary check.
+- `CPIA` on SC61860 sets Carry=1 if A < immediate (borrow), so `JRCP` branches when A < immediate (still in field) and `JRNCP` branches when A ≥ immediate — use `JRCP` for "in bounds" checks.
 
