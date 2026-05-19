@@ -1,0 +1,10 @@
+LIB_RND_PC1403:
+		TEST  02 ; 2 ms timer
+		JRNZP RND_SKIP
+		LIDP  bRnd
+		LDD
+		INCA
+		STD
+RND_SKIP:
+		NOP
+		RTN
