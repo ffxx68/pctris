@@ -95,42 +95,47 @@ At 750 KHz a simple double-loop provides ~150 ms per frame:
 
 ## Development Plan
 
-### Phase 1 — LCD validation
+### Phase 1 — LCD validation ✅ DONE
 - [x] Entry/exit register save/restore
 - [x] LCD on + clear screen
 - [x] O-piece (2×2 block) scrolling left→right across the field
-- [x] BRK key exits cleanly
-- [x] Frame delay tuned for 750 KHz
+- [x] DEF key exits cleanly (BRK triggers HW interrupt → use KEYSCAN+keycode 37)
+- [x] Frame delay tuned (B=5 outer × 256 inner loops)
 - [x] Compiled and loaded in MAME (498 bytes)
-- [x] Test on MAME - OK, pieces scroll across the screen with a delay, and BRK exits to BASIC.
-- [ ] Test on real hardware (PC-1403)
+- [x] Test on MAME ✅ — block scrolls across screen, DEF exits to BASIC
 
 ### Phase 2 — Input & vertical movement
 - [ ] Read ▼ (keycode 3) / ▲ (keycode 10) → move `piece_y` ±1
 - [ ] Read `>` (keycode 21) → fast-forward (skip delay)
 - [ ] Clamp `piece_y` to field bounds (0–5 for 2-tall piece)
-
+- [ ] Test on MAME
+ 
 ### Phase 3 — Tetromino shapes
 - [ ] Piece table: 7 shapes × 4 rotations × 4 offsets (dx, dy) = 112 bytes `.DB`
 - [ ] Spawn: read `bRnd MOD 7` → shape index; centred Y; X = left edge
 - [ ] Rotation: `>` / `<` key cycles `piece_rot` 0–3, redraw
 - [ ] Generalise `pset_piece` to loop over 4 offsets from table
+- [ ] Test on MAME
 
 ### Phase 4 — Board & collision
 - [ ] Board array: 13 bytes (one per column), each byte = 7-bit row bitmask
 - [ ] `BOARD_COLLISION`: check each piece cell against board bitmask + boundaries
 - [ ] `BOARD_LOCK`: OR piece cells into board on landing
 - [ ] Gravity: each N frames advance piece_x +1; collision → lock
+- [ ] Test on MAME
 
 ### Phase 5 — Line clear & score
 - [ ] `CHECK_LINES`: scan all 7 rows; full row (all 13 col-bits set) → shift board left
 - [ ] Score counter (1 byte, BCD or binary); display via ROM BASIC routine or pixel font
+- [ ] Test on MAME
 
 ### Phase 6 — Polish
 - [ ] Game-over detection (piece locked at X=15 immediately after spawn)
 - [ ] "GAME OVER" message on LCD (using BASIC ROM `PRINT` or pixel sprites)
 - [ ] Speed increase every N lines cleared (reduce outer delay counter)
 - [ ] Next-piece preview in characters 0–2 (left of field)
+- [ ] Test on MAME
+- [ ] Test on real hardware (PC-1403)
 
 ---
 
