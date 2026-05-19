@@ -86,11 +86,13 @@ flag and increments `bRnd` (at `0xE221`) on each tick. At spawn time, `bRnd MOD 
 (via `LIB_MOD8` from `_div_mod_8.lib`) gives a pseudo-random piece index 0–6.
 
 ### Frame delay
-At 750 KHz a simple double-loop provides ~150 ms per frame:
-- outer counter B = 40
+At 750 KHz CPU clock, a simple double-loop provides ~150 ms per frame:
+- outer counter B = ?
 - inner counter A = 256 (DECA + JRNZM = ~11 cycles each)
 - total ≈ 40 × 256 × 11 = ~112 640 cycles ≈ 150 ms
 
+In a test from phase 1, setting B to 5 gives a good feel for piece movement speed, 
+and leaves room for speed increases in later phases.
 ---
 
 ## Development Plan
@@ -147,14 +149,16 @@ See [`mame_mcp_readme.md`](mame_mcp_readme.md) for full setup instructions.
 
 Pre-requisite: having MAME of course, as well as the PC-1403 ROM and layout installed in MAME.
 
-# Quick deployment and testing workflow:
+---
 
-## 1. compile and copy to your MAME home
+## Quick deployment and testing workflow:
+
+### 1. compile and copy to your MAME home
 `.\pasm.exe asm\pctris.asm asm\pctris.bin`
 
 `copy asm\pctris.bin C:\Users\mame\pctris.bin`
 
-## 2. start MAME manually
+### 2. start MAME manually
 `cd C:\Users\mame`
 
 `mame.exe pc1403 -debug -nomaximize -console`
@@ -162,19 +166,19 @@ Pre-requisite: having MAME of course, as well as the PC-1403 ROM and layout inst
 Then, soft-reset (with `<F3>` on the MAME debugger), until the emulated PC-1403 starts 
 (at 'MEMORY ALL CLEAR O.K.?' message; press enter on the emulated machine.)
 
-## 3. in MAME Lua console, activate MCP bridge
+### 3. in MAME Lua console, activate MCP bridge
 `dofile("mame_mcp_bridge.lua")`
 
-## 4. in MAME Lua console, enable key mapping (optional, for testing input)
+### 4. in MAME Lua console, enable key mapping (optional, for testing input)
 `dofile("pc1403_key.lua")`
 
-## 5. in MAME Lua console, init PC-1403 memory to accomodate the binary
+### 5. in MAME Lua console, init PC-1403 memory to accomodate the binary
 `keyfile("pc1403_init.key")`
 
-*Note* - [mame_mcp_bridge.lua](mame_mcp_bridge.lua), [mame_mcp_server.py](mame_mcp_server.py), [pc1403_key.lua](pc1403_key.lua), and [pc1403_init.key](pc1403_init.key) are 
-all inherited from the https://github.com/ffxx68/Sharp_LittleC_Compiler project.
+*Note* - [mame_mcp_bridge.lua](mame_mcp_bridge.lua), [mame_mcp_server.py](mame_mcp_server.py) are inherited from the https://github.com/ffxx68/mame_mcp_server repositiry
+, while [pc1403_key.lua](pc1403_key.lua), and [pc1403_init.key](pc1403_init.key) are inherited from the https://github.com/ffxx68/Sharp_LittleC_Compiler project.
 
-## 6. from Copilot / MCP: load binary and set breakpoints
+### 6. from Copilot / MCP: load binary and set breakpoints
 
 Ask for example in Copilot "Load the PCTris binary into MAME and set a breakpoint at the main game loop"
 
@@ -182,7 +186,7 @@ From here on, you can use both Copilot, or direct MAME interactions, to test and
 
 ---
 
-# Known Issues / Notes
+## Known Issues / Notes
 
 - The `erase_piece` → `pset_piece` fall-through relies on no instruction between the
   two labels; do not insert code between them.
