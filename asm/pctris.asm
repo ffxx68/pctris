@@ -1,5 +1,5 @@
 ; pctris.asm - Tetris for Sharp PC-1403
-; proof-of-concept: O-piece scrolling right on LCD to validate LCD access
+; Phase 2: vertical input (v/^), fast-forward (>), DEF exit
 ; assemble with:  pasm asm\pctris.asm pctris.bin
 
 .ORG    0xE030
@@ -32,6 +32,15 @@ SREG:   .DW 0, 0, 0, 0, 0, 0
 .equ FIELD_X0   15      ; left edge  (LCD char 3  = pixel 15)
 .equ FIELD_X1   78      ; max piece_x for 2-wide piece (char 15 right = px 79)
 .equ FIELD_Y_C   3      ; centre row (0..6, piece 2 tall → top at row 3)
+.equ FIELD_Y0    0      ; visual BOTTOM boundary (Y=0 = bottom in MAME rendering)
+.equ FIELD_Y1    5      ; visual TOP boundary (2-tall piece top ≤ 5 → rows 5,6)
+
+; === keycodes (from _key_pc1403.lib keycode table) ===
+; | v | | ^ |   →   3     10
+.equ KEY_DOWN   3       ; v arrow (keycode 3)  → piece_y + 1 (visually down)
+.equ KEY_UP     10      ; ^ arrow (keycode 10) → piece_y - 1 (visually up)
+.equ KEY_FAST   21      ; > (fast-forward)
+.equ KEY_DEF    37      ; DEF (exit to BASIC)
 
 
 ; ============================================================
@@ -41,17 +50,29 @@ main:
 main_loop:
     CALL LIB_RND_PC1403     ; keep RNG counter ticking
 
-    CALL erase_piece         ; clear current 2x2 block from LCD
-    CALL move_piece          ; advance piece_x right (wraps at FIELD_X1)
-    CALL draw_piece          ; draw 2x2 block at new position
+    CALL PC1403_ROM_KEYSCAN ; non-blocking scan → keycode in A, 0 if no key
+    LIDP key_cur
+    STD                     ; save keycode for reuse this frame
 
-    CALL delay               ; frame delay
+    CPIA KEY_DEF            ; DEF key? (CPIA: A-n, sets Z=1 if A==n, C unchanged)
+    JRZP main_exit          ; Z=1: exit (fwd jump to RTN after loop body)
 
-    ; exit check: press DEF (keycode 37) to return to BASIC
-    CALL PC1403_ROM_KEYSCAN  ; non-blocking scan → keycode in A, 0 if no key
-    CPIA 37                  ; DEF key?
-    JRNZM main_loop          ; not DEF → keep looping (backward jump)
-    RTN                      ; DEF pressed → exit → entry code restores regs
+    CALL erase_piece        ; erase OLD position FIRST (before any move)
+    CALL handle_input       ; update piece_y from ▼/▲ keys
+    CALL move_piece         ; advance piece_x right
+    CALL draw_piece         ; draw at NEW position
+
+    ; fast-forward: skip delay if > (KEY_FAST) was pressed
+    LIDP key_cur
+    LDD                     ; A = keycode
+    CPIA KEY_FAST           ; Z=1 if > key
+    JRZM main_loop          ; Z=1: skip delay, jump back (backward)
+
+    CALL delay              ; normal frame pacing
+    JRM  main_loop          ; loop back (backward)
+
+main_exit:
+    RTN                     ; DEF pressed → entry stub restores regs
 
 ; ============================================================
 init_game:
@@ -162,6 +183,47 @@ move_piece_ok:
     RTN
 
 ; ============================================================
+; handle_input: read key_cur, update piece_y for UP/DOWN
+; CPIA = A-n → Z=1 if equal, C=1 if A<n  (table: Test e Confronto)
+; JRNZP = fwd jump if Z=0 (A≠n)          (table: Salti Relativi Condizionali)
+; JRCP  = fwd jump if C=1 (A<n, in bounds)(table: Salti Relativi Condizionali)
+handle_input:
+    LIDP key_cur
+    LDD                     ; A = keycode
+
+    ; --- v arrow (KEY_DOWN=3): piece_y - 1 (visual DOWN = smaller Y in MAME) ---
+    CPIA KEY_DOWN           ; Z=1 if A==3
+    JRNZP hi_check_up       ; Z=0: not v, check ^
+
+    LIDP piece_y
+    LDD                     ; A = piece_y
+    CPIA FIELD_Y0+1         ; C=1 if A < 1 (A==0: already at visual bottom)
+    JRCP hi_done            ; C=1: at bottom, no change
+    DECA                    ; A = piece_y - 1
+    LIDP piece_y
+    STD                     ; piece_y = A
+    RTN
+
+hi_check_up:
+    ; --- ^ arrow (KEY_UP=10): piece_y + 1 (visual UP = larger Y in MAME) ---
+    CPIA KEY_UP             ; Z=1 if A==10
+    JRNZP hi_done           ; Z=0: not ^, nothing to do
+
+    LIDP piece_y
+    LDD                     ; A = piece_y
+    INCA                    ; A = piece_y + 1
+    CPIA FIELD_Y1+1         ; C=1 if A < 6 (new piece_y ≤ 5, in bounds)
+    JRCP hi_set_y           ; C=1: in bounds, keep value in A
+    LIA  FIELD_Y1           ; C=0: clamp to 5
+hi_set_y:
+    LIDP piece_y
+    STD                     ; piece_y = A
+    RTN
+
+hi_done:
+    RTN
+
+; ============================================================
 ; frame delay  ~60 ms at 750 KHz
 ; outer (B): 20 × inner (A): 256 × ~11 cycles ≈ 56320 cycles ≈ 75 ms
 delay:
@@ -179,4 +241,5 @@ delay_inner:
 ; variables  (inline .DB → writable in user RAM at .ORG 0xE030)
 piece_x:    .DB  15         ; current X pixel position of active piece
 piece_y:    .DB   3         ; current Y pixel position of active piece
+key_cur:    .DB   0         ; keycode captured at top of main_loop
 bRnd:       .DB   0         ; free-running RNG counter (used by LIB_RND_PC1403)

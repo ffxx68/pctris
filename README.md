@@ -107,11 +107,11 @@ and leaves room for speed increases in later phases.
 - [x] Test on MAME ✅ — block scrolls across screen, DEF exits to BASIC
 
 ### Phase 2 — Input & vertical movement
-- [ ] Read ▼ (keycode 3) / ▲ (keycode 10) → move `piece_y` ±1
-- [ ] Read `>` (keycode 21) → fast-forward (skip delay)
-- [ ] Clamp `piece_y` to field bounds (0–5 for 2-tall piece)
-- [ ] Test on MAME
- 
+- [x] Read ▼ (keycode 3) / ▲ (keycode 10) → move `piece_y` ±1
+- [x] Read `>` (keycode 21) → fast-forward (skip delay)
+- [x] Clamp `piece_y` to field bounds (0–5 for 2-tall piece)
+- [x] Test on MAME - ✅ — piece moves down every frame, faster with `>`, and can be moved up/down with ▲/▼ keys
+
 ### Phase 3 — Tetromino shapes
 - [ ] Piece table: 7 shapes × 4 rotations × 4 offsets (dx, dy) = 112 bytes `.DB`
 - [ ] Spawn: read `bRnd MOD 7` → shape index; centred Y; X = left edge
@@ -174,6 +174,9 @@ Then, soft-reset (with `<F3>` on the MAME debugger), until the emulated PC-1403 
 
 ### 5. in MAME Lua console, init PC-1403 memory to accomodate the binary
 `keyfile("pc1403_init.key")`
+
+This will init the emulated machine and would need to be done only once,
+unless you reset the machine or want to re-test from a clean state.
 
 *Note* - [mame_mcp_bridge.lua](mame_mcp_bridge.lua), [mame_mcp_server.py](mame_mcp_server.py) are inherited from the https://github.com/ffxx68/mame_mcp_server repositiry
 , while [pc1403_key.lua](pc1403_key.lua), and [pc1403_init.key](pc1403_init.key) are inherited from the https://github.com/ffxx68/Sharp_LittleC_Compiler project.
