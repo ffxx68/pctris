@@ -1,5 +1,5 @@
 ; pctris.asm - Tetris for Sharp PC-1403
-; Phase 2: vertical input (v/^), fast-forward (>), DEF exit
+; Phase 3a: loop-based draw via IXL (O-piece cell table, 4 cells)
 ; assemble with:  pasm asm\pctris.asm pctris.bin
 
 .ORG    0xE030
@@ -111,60 +111,84 @@ erase_piece:
     EXAM                    ; K = 0 (clear mode)
     ; fall through to pset_piece
 
-; draw/erase the 4 pixels of the O-piece using current K
-; K must already be set; XL/YL are set here from piece_x/piece_y
+; draw/erase 4 cells of current piece via (dx,dy) table
+; K must already be set (1=set pixel, 0=clear pixel)
+; Reads 4×(dx,dy) pairs from O_PIECE_DATA using IXL (pre-increment X)
+; IXL: X+1→X, X→DP, (DP)→A  — sequential auto-advance
+;
+; IMPORTANT constraints:
+;   - PSET uses I (LII 7 in its internal loop) → outer loop uses J (safe)
+;   - PSET calls IXL internally → clobbers XL:XH after each call
+;   - ptr_lo/ptr_hi save XL:XH across PSET calls so IXL can resume
+;   - M (P=10) = tmp dx ;  N (P=11) = tmp dy
+;   - PSET has built-in Y>6 clip, so no extra guard needed here
 pset_piece:
-    ; --- pixel (piece_x, piece_y) ---
-    LIDP piece_x
-    LDD
+    LIJ  4                      ; J = 4: outer loop counter (PSET clobbers I, not J)
+    LIA  LB(O_PIECE_DUMMY)
     LP   4
-    EXAM                    ; XL = piece_x
+    EXAM                        ; XL = LB(O_PIECE_DUMMY)
+    LIA  HB(O_PIECE_DUMMY)
+    LP   5
+    EXAM                        ; XH = HB(O_PIECE_DUMMY)
+                                ; X now = O_PIECE_DUMMY; first IXL steps to O_PIECE_DATA[0]
+pset_cell_loop:
+    IXL                         ; X++, A = dx; X = &O_PIECE_DATA[2*cell]
+    LP   10
+    EXAM                        ; M = dx  (A = discarded old M)
+    IXL                         ; X++, A = dy; X = &O_PIECE_DATA[2*cell+1]
+    LP   11
+    EXAM                        ; N = dy  (A = discarded old N)
 
-    LIDP piece_y
-    LDD
-    LP   6
-    EXAM                    ; YL = piece_y
-    CALL LCD_LIB_PSET
-
-    ; --- pixel (piece_x+1, piece_y) ---
-    LIDP piece_x
-    LDD
-    INCA
+    ; save X (= address of just-read dy byte) → ptr_lo/ptr_hi
+    ; so we can restore X after PSET clobbers it
     LP   4
-    EXAM                    ; XL = piece_x + 1
+    LDM                         ; A = XL  (LDM: (P)→A, non-destructive)
+    LIDP ptr_lo
+    STD                         ; ptr_lo = XL
+    LP   5
+    LDM                         ; A = XH
+    LIDP ptr_hi
+    STD                         ; ptr_hi = XH
 
-    LIDP piece_y
-    LDD
-    LP   6
-    EXAM                    ; YL = piece_y (reload: PSET may clobber it)
-    CALL LCD_LIB_PSET
-
-    ; --- pixel (piece_x, piece_y+1) ---
+    ; pixel_x = piece_x + dx(M)
     LIDP piece_x
-    LDD
-    LP   4
-    EXAM                    ; XL = piece_x
+    LDD                         ; A = piece_x
+    LP   10
+    ADM                         ; M = dx + piece_x  (ADM: (P)+A→(P))
 
+    ; pixel_y = piece_y + dy(N)
     LIDP piece_y
-    LDD
-    INCA
-    LP   6
-    EXAM                    ; YL = piece_y + 1
-    CALL LCD_LIB_PSET
+    LDD                         ; A = piece_y
+    LP   11
+    ADM                         ; N = dy + piece_y
 
-    ; --- pixel (piece_x+1, piece_y+1) ---
-    LIDP piece_x
-    LDD
-    INCA
+    ; load XL = pixel_x for PSET
+    LP   10
+    LDM                         ; A = pixel_x
     LP   4
-    EXAM                    ; XL = piece_x + 1
+    EXAM                        ; XL = pixel_x
 
-    LIDP piece_y
-    LDD
-    INCA
+    ; load YL = pixel_y for PSET
+    LP   11
+    LDM                         ; A = pixel_y
     LP   6
-    EXAM                    ; YL = piece_y + 1
-    CALL LCD_LIB_PSET
+    EXAM                        ; YL = pixel_y
+
+    CALL LCD_LIB_PSET           ; set/clear pixel; K already set by caller
+                                ; PSET clobbers X (XL:XH), I, A, B
+
+    ; restore X pointer for next IXL
+    LIDP ptr_lo
+    LDD                         ; A = saved XL
+    LP   4
+    EXAM                        ; XL = ptr_lo
+    LIDP ptr_hi
+    LDD                         ; A = saved XH
+    LP   5
+    EXAM                        ; XH = ptr_hi
+
+    DECJ                        ; J--; Z=1 when J hits 0
+    JRNZM pset_cell_loop        ; loop while J != 0
 
     RTN
 
@@ -243,3 +267,11 @@ piece_x:    .DB  15         ; current X pixel position of active piece
 piece_y:    .DB   3         ; current Y pixel position of active piece
 key_cur:    .DB   0         ; keycode captured at top of main_loop
 bRnd:       .DB   0         ; free-running RNG counter (used by LIB_RND_PC1403)
+ptr_lo:     .DB   0         ; saved XL (low byte of table ptr) across PSET calls
+ptr_hi:     .DB   0         ; saved XH (high byte of table ptr) across PSET calls
+
+; === O-piece cell data ===
+; O_PIECE_DUMMY is 1 byte before O_PIECE_DATA so that X = O_PIECE_DUMMY
+; and the first IXL (pre-increment) lands exactly on O_PIECE_DATA[0].
+O_PIECE_DUMMY:  .DB 0
+O_PIECE_DATA:   .DB 0,0, 1,0, 0,1, 1,1   ; 4 cells: (dx0,dy0)(dx1,dy1)(dx2,dy2)(dx3,dy3)

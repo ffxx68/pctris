@@ -112,26 +112,44 @@ and leaves room for speed increases in later phases.
 - [x] Clamp `piece_y` to field bounds (0–5 for 2-tall piece)
 - [x] Test on MAME - ✅ — piece moves down every frame, faster with `>`, and can be moved up/down with ▲/▼ keys
 
-### Phase 3 — Tetromino shapes
-- [ ] Piece table: 7 shapes × 4 rotations × 4 offsets (dx, dy) = 112 bytes `.DB`
-- [ ] Spawn: read `bRnd MOD 7` → shape index; centred Y; X = left edge
-- [ ] Rotation: `>` / `<` key cycles `piece_rot` 0–3, redraw
-- [ ] Generalise `pset_piece` to loop over 4 offsets from table
+### Phase 3 — Loop-based draw (O-piece only)
+- [x] Replace hardcoded 4-pixel draw with a cell loop over 4 (dx, dy) entries
+- [x] Use X register (`IXL`) for sequential table reads; X set to `O_PIECE_DUMMY` before loop
+- [x] `ptr_lo`/`ptr_hi` save/restore XL:XH across `LCD_LIB_PSET` calls (PSET clobbers X)
+- [x] Outer loop uses J counter (`LIJ 4` / `DECJ` / `JRNZM`) — safe: PSET clobbers I, not J
+- [x] PSET built-in Y>6 clip handles boundary — no extra guard needed
+- [x] Compiled — 572 bytes (`O_PIECE_DUMMY`=0xE273, `O_PIECE_DATA`=0xE274)
+- [x] Test on MAME ✅ — O-piece scrolls and moves exactly as Phase 2
+
+### Phase 4 — Piece table + random spawn
+- [ ] Piece table: 7 shapes × 4 rotations × 4 cells × 2 bytes (dx, dy) = 224 bytes `.DB`
+- [ ] `spawn_piece`: compute table pointer from `piece_type × 32` (using `RC`+`SL` × 5)
+      + `piece_rot × 8`; store in `cell_ptr` (2 bytes); reset `piece_x = FIELD_X0`, `piece_y = 3`
+- [ ] At start and after wrap: call `spawn_piece` using `bRnd MOD 7` for `piece_type`
+- [ ] Rotation fixed at 0 for now; all 7 shapes scroll without rotation
 - [ ] Test on MAME
 
-### Phase 4 — Board & collision
+### Phase 5 — Rotation input
+- [ ] Add `piece_rot` variable (0–3)
+- [ ] Key `<` (keycode 16): `piece_rot = (piece_rot + 1) MOD 4` → recompute `cell_ptr`
+- [ ] Key `>` (keycode 21): keep as fast-forward (or also rotate; decide by test)
+- [ ] After rotation: clamp `piece_y` so no cell exceeds Y = 6 (clip in draw is fallback)
+- [ ] In `pset_piece` cell loop: skip PSET if computed Y > 6 (boundary clip)
+- [ ] Test on MAME: all 7 pieces × 4 rotations visible and rotating
+
+### Phase 6 — Board & collision
 - [ ] Board array: 13 bytes (one per column), each byte = 7-bit row bitmask
 - [ ] `BOARD_COLLISION`: check each piece cell against board bitmask + boundaries
 - [ ] `BOARD_LOCK`: OR piece cells into board on landing
 - [ ] Gravity: each N frames advance piece_x +1; collision → lock
 - [ ] Test on MAME
 
-### Phase 5 — Line clear & score
+### Phase 7 — Line clear & score
 - [ ] `CHECK_LINES`: scan all 7 rows; full row (all 13 col-bits set) → shift board left
 - [ ] Score counter (1 byte, BCD or binary); display via ROM BASIC routine or pixel font
 - [ ] Test on MAME
 
-### Phase 6 — Polish
+### Phase 8 — Polish
 - [ ] Game-over detection (piece locked at X=15 immediately after spawn)
 - [ ] "GAME OVER" message on LCD (using BASIC ROM `PRINT` or pixel sprites)
 - [ ] Speed increase every N lines cleared (reduce outer delay counter)
