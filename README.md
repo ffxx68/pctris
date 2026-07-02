@@ -121,20 +121,23 @@ and leaves room for speed increases in later phases.
 - [x] Compiled — 572 bytes (`O_PIECE_DUMMY`=0xE273, `O_PIECE_DATA`=0xE274)
 - [x] Test on MAME ✅ — O-piece scrolls and moves exactly as Phase 2
 
-### Phase 4 — Piece table + random spawn
-- [ ] Piece table: 7 shapes × 4 rotations × 4 cells × 2 bytes (dx, dy) = 224 bytes `.DB`
-- [ ] `spawn_piece`: compute table pointer from `piece_type × 32` (using `RC`+`SL` × 5)
-      + `piece_rot × 8`; store in `cell_ptr` (2 bytes); reset `piece_x = FIELD_X0`, `piece_y = 3`
-- [ ] At start and after wrap: call `spawn_piece` using `bRnd MOD 7` for `piece_type`
-- [ ] Rotation fixed at 0 for now; all 7 shapes scroll without rotation
-- [ ] Test on MAME
+### Phase 4 — Piece table + random spawn ✅ DONE
+- [x] Piece table: 7 shapes × 4 rotations × 4 cells × 2 bytes (dx, dy) = 224 bytes `.DB`
+- [x] `spawn_piece`: compute table pointer from `piece_type × 32` (using `SL` × 5)
+      + `piece_rot × 8`; store in `cell_ptr` (2 bytes); reset `piece_x = FIELD_X0`, `piece_y = 2`
+- [x] At start and after wrap: call `spawn_piece` using `bRnd MOD 7` for `piece_type`
+- [x] Rotation fixed at 0 for now; all 7 shapes scroll without rotation
+- [x] Y boundary clip in `pset_piece`: skip PSET if pixel_y ≥ 7
+- [x] Compiled — 906 bytes (`PIECE_TABLE`=0xE2FA)
+- [x] Test on MAME ✅ — all 7 pieces spawn randomly and scroll correctly
+- **Note**: `FIELD_Y1=4` conservative limit; Y=6 row not fully utilized (to investigate)
 
 ### Phase 5 — Rotation input
-- [ ] Add `piece_rot` variable (0–3)
+- [ ] Add `piece_rot` variable (0–3) — already defined, just unused
 - [ ] Key `<` (keycode 16): `piece_rot = (piece_rot + 1) MOD 4` → recompute `cell_ptr`
 - [ ] Key `>` (keycode 21): keep as fast-forward (or also rotate; decide by test)
-- [ ] After rotation: clamp `piece_y` so no cell exceeds Y = 6 (clip in draw is fallback)
-- [ ] In `pset_piece` cell loop: skip PSET if computed Y > 6 (boundary clip)
+- [ ] After rotation: clamp `piece_y` so no cell exceeds Y = 6
+- [x] In `pset_piece` cell loop: skip PSET if computed Y ≥ 7 (boundary clip) — done in Phase 4
 - [ ] Test on MAME: all 7 pieces × 4 rotations visible and rotating
 
 ### Phase 6 — Board & collision
