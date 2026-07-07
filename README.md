@@ -129,16 +129,18 @@ and leaves room for speed increases in later phases.
 - [x] Rotation fixed at 0 for now; all 7 shapes scroll without rotation
 - [x] Y boundary clip in `pset_piece`: skip PSET if pixel_y ≥ 7
 - [x] Compiled — 906 bytes (`PIECE_TABLE`=0xE2FA)
-- [x] Test on MAME ✅ — all 7 pieces spawn randomly and scroll correctly
-- **Note**: `FIELD_Y1=4` conservative limit; Y=6 row not fully utilized (to investigate)
+- [] Test on MAME ✅ — all 7 pieces spawn randomly and scroll correctly
 
 ### Phase 5 — Rotation input
-- [ ] Add `piece_rot` variable (0–3) — already defined, just unused
-- [ ] Key `<` (keycode 16): `piece_rot = (piece_rot + 1) MOD 4` → recompute `cell_ptr`
-- [ ] Key `>` (keycode 21): keep as fast-forward (or also rotate; decide by test)
-- [ ] After rotation: clamp `piece_y` so no cell exceeds Y = 6
+- [x] Add `piece_rot` variable (0–3) — already defined, just unused
+- [x] Key `<` (keycode 16): `piece_rot = (piece_rot + 1) MOD 4` → recompute `cell_ptr`
+- [x] Key `>` (keycode 21): keep as fast-forward (or also rotate; decide by test)
+- [x] After rotation: clamp `piece_y` so no cell exceeds Y = 6
 - [x] In `pset_piece` cell loop: skip PSET if computed Y ≥ 7 (boundary clip) — done in Phase 4
 - [ ] Test on MAME: all 7 pieces × 4 rotations visible and rotating
+- TODO : piece clamping needs a review, as rotated pieces are not limited correctly to the field height
+         e.g. T-pieces go off screen by one pixel, when NOT rotated.
+              instead, they are limited too low, when rotated
 
 ### Phase 6 — Board & collision
 - [ ] Board array: 13 bytes (one per column), each byte = 7-bit row bitmask
